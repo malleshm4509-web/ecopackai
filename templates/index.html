@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>EcoPackAI Premium</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body {
+    margin:0;
+    font-family:'Poppins', sans-serif;
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color:white;
+}
+.navbar {
+    display:flex;
+    justify-content:space-between;
+    padding:20px 40px;
+    background:rgba(255,255,255,0.05);
+}
+.nav-buttons button {
+    margin-left:10px;
+    padding:10px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:bold;
+}
+.home-btn {background:#00c853;}
+.analytics-btn {background:#ff9800;}
+.compare-btn {background:#03a9f4;}
+.pdf-btn {background:#e53935;}
+
+.container {max-width:1200px;margin:auto;padding:30px;}
+
+.card {
+    background:rgba(255,255,255,0.08);
+    padding:25px;
+    border-radius:20px;
+    margin-top:20px;
+}
+
+input, select {
+    width:100%;
+    padding:12px;
+    margin:10px 0;
+    border-radius:10px;
+    border:none;
+}
+
+.main-btn {
+    width:100%;
+    padding:14px;
+    background:#00c853;
+    border:none;
+    color:white;
+    border-radius:12px;
+    cursor:pointer;
+}
+
+.reset-btn {
+    width:100%;
+    padding:14px;
+    background:#ff5252;
+    border:none;
+    color:white;
+    border-radius:12px;
+    margin-top:10px;
+}
+
+table {
+    width:100%;
+    margin-top:20px;
+    background:white;
+    color:black;
+    border-radius:10px;
+}
+
+th {background:#00c853;color:white;}
+th,td {padding:10px;text-align:center;}
+.best {background:#b2ff59;font-weight:bold;}
+
+canvas {
+    background:white;
+    margin-top:20px;
+    border-radius:10px;
+    padding:10px;
+}
+
+.section {display:none;}
+.active {display:block;}
+</style>
+</head>
+
+<body>
+
+<div class="navbar">
+    <h2>🌱 EcoPackAI Premium</h2>
+    <div class="nav-buttons">
+        <button class="home-btn" onclick="showSection('home')">Home</button>
+        <button class="analytics-btn" onclick="showSection('analytics')">Analytics</button>
+        <button class="compare-btn" onclick="showSection('compare')">Compare</button>
+        <button class="pdf-btn" onclick="downloadPDF()">Export PDF</button>
+    </div>
+</div>
+
+<div class="container" id="pdfContent">
+
+<!-- FORM -->
+<div class="card">
+<form method="POST" id="form">
+<input type="text" name="product" value="{{ request.form.product or '' }}" placeholder="Product Name" required>
+<input type="number" step="0.1" name="weight" value="{{ request.form.weight or '' }}" placeholder="Weight (kg)" required>
+
+<select name="type">
+<option>Electronics</option>
+<option>Fragile</option>
+<option>Food</option>
+<option>Clothing</option>
+<option>Heavy</option>
+<option>General</option>
+</select>
+
+<select name="fragility">
+<option>Low</option>
+<option>Medium</option>
+<option>High</option>
+</select>
+
+<select name="shipping">
+<option>Road</option>
+<option>Air</option>
+<option>Sea</option>
+</select>
+
+<button class="main-btn">🚀 Generate Recommendation</button>
+<button type="button" class="reset-btn" onclick="resetForm()">🔄 Reset</button>
+</form>
+</div>
+
+{% if result and result.top5 %}
+
+<!-- HOME -->
+<div id="home" class="card section active">
+<h2>🏆 Best Material: {{ result.top5[0].Material }}</h2>
+
+<table>
+<tr>
+<th>Material</th>
+<th>Strength</th>
+<th>Cost</th>
+<th>CO₂</th>
+<th>Bio</th>
+<th>Recycle</th>
+<th>Eco</th>
+</tr>
+
+{% for item in result.top5 %}
+<tr class="{% if loop.index==1 %}best{% endif %}">
+<td>{{ item.Material }}</td>
+<td>{{ item.Strength }}</td>
+<td>{{ item.Cost }}</td>
+<td>{{ item.CO2 }}</td>
+<td>{{ "Yes" if item.Bio else "No" }}</td>
+<td>{{ "Yes" if item.Recycle else "No" }}</td>
+<td>{{ item.EcoScore }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+<!-- ANALYTICS -->
+<div id="analytics" class="card section">
+<h2>📊 Analytics</h2>
+
+<canvas id="strengthChart"></canvas>
+<canvas id="costChart"></canvas>
+<canvas id="co2Chart"></canvas>
+<canvas id="ecoChart"></canvas>
+</div>
+
+<!-- COMPARE -->
+<div id="compare" class="card section">
+<h2>⚖️ Compare Materials</h2>
+
+<select id="m1"></select>
+<select id="m2"></select>
+<button onclick="compare()">Compare</button>
+
+<canvas id="compareChart"></canvas>
+</div>
+
+<script>
+const resultData = JSON.parse('{{ result | tojson | safe }}');
+const top5 = resultData.top5;
+
+// Charts Data
+const labels = top5.map(x => x.Material);
+const strength = top5.map(x => x.Strength);
+const cost = top5.map(x => x.Cost);
+const co2 = top5.map(x => x.CO2);
+const eco = top5.map(x => x.EcoScore);
+
+// Charts
+new Chart(document.getElementById("strengthChart"), {
+    type:'bar',
+    data:{ labels: labels, datasets:[{ label:'Strength', data:strength }] }
+});
+
+new Chart(document.getElementById("costChart"), {
+    type:'bar',
+    data:{ labels: labels, datasets:[{ label:'Cost', data:cost }] }
+});
+
+new Chart(document.getElementById("co2Chart"), {
+    type:'bar',
+    data:{ labels: labels, datasets:[{ label:'CO2', data:co2 }] }
+});
+
+new Chart(document.getElementById("ecoChart"), {
+    type:'line',
+    data:{ labels: labels, datasets:[{ label:'Eco Score', data:eco }] }
+});
+
+// Compare
+const m1 = document.getElementById("m1");
+const m2 = document.getElementById("m2");
+
+top5.forEach((d,i)=>{
+    m1.innerHTML += `<option value="${i}">${d.Material}</option>`;
+    m2.innerHTML += `<option value="${i}">${d.Material}</option>`;
+});
+
+let chart;
+function compare(){
+    const a = top5[m1.value];
+    const b = top5[m2.value];
+
+    if(chart) chart.destroy();
+
+    chart = new Chart(document.getElementById("compareChart"), {
+        type:'bar',
+        data:{
+            labels:["Strength","Cost","CO2","Eco"],
+            datasets:[
+                {label:a.Material,data:[a.Strength,a.Cost,a.CO2,a.EcoScore]},
+                {label:b.Material,data:[b.Strength,b.Cost,b.CO2,b.EcoScore]}
+            ]
+        }
+    });
+}
+</script>
+
+{% endif %}
+
+</div>
+
+<script>
+function showSection(id){
+document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+document.getElementById(id).classList.add("active");
+}
+
+function resetForm(){
+document.getElementById("form").reset();
+window.location.href="/";
+}
+
+// PDF
+async function downloadPDF(){
+const { jsPDF } = window.jspdf;
+const canvas = await html2canvas(document.getElementById("pdfContent"), {scale:2});
+const img = canvas.toDataURL("image/png");
+
+const pdf = new jsPDF('p','mm','a4');
+pdf.setFontSize(18);
+pdf.text("EcoPackAI Report", 10, 10);
+pdf.addImage(img,'PNG',0,20,210,260);
+pdf.save("EcoPackAI_Report.pdf");
+}
+</script>
+
+</body>
+</html>
