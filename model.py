@@ -74,7 +74,7 @@ y_co2 = df["CO2"]
 y_eco = df["EcoScore"]
 y_bio = df["Bio"]
 y_recycle = df["Recycle"]
-
+y_material = df["Material"]
 # ==============================
 # SPLIT
 # ==============================
@@ -97,7 +97,7 @@ model_strength = LGBMRegressor(n_estimators=150, max_depth=5)
 model_cost = LGBMRegressor(n_estimators=80)
 model_co2 = LGBMRegressor(n_estimators=80)
 model_eco = LGBMRegressor(n_estimators=100)
-
+model_material = LGBMClassifier(n_estimators=200)
 model_bio = LGBMClassifier(n_estimators=300)
 model_recycle = LGBMClassifier(n_estimators=150)
 
@@ -109,7 +109,7 @@ model_strength.fit(X_train_strength, y_strength_train)
 model_cost.fit(X_train_base, y_cost_train)
 model_co2.fit(X_train_base, y_co2_train)
 model_eco.fit(X_train_base, y_eco_train)
-
+model_material.fit(X_train_base, y_material.loc[X_train_base.index])
 model_bio.fit(X_train_base, y_bio_train)
 model_recycle.fit(X_train_base, y_recycle_train)
 
@@ -129,11 +129,12 @@ print("Recycle Accuracy:", accuracy_score(y_recycle.loc[X_test_base.index], mode
 # ==============================
 # SAVE
 # ==============================
+joblib.dump(model_material, "material.pkl")
+
 joblib.dump(model_strength, "strength.pkl")
 joblib.dump(model_cost, "cost.pkl")
 joblib.dump(model_co2, "co2.pkl")
 joblib.dump(model_eco, "eco.pkl")
-
 joblib.dump(model_bio, "bio.pkl")
 joblib.dump(model_recycle, "recycle.pkl")
 
